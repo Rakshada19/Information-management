@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Printer Troubleshooting Expert System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .question-box {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .question-box p {
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .failure {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Printer Diagnosis Expert System 🤖</h1>
+        
+        <div id="interface">
+            </div>
+
+        <div id="result" class="result" style="display: none;">
+            </div>
+    </div>
+
+    <script>
+        // --- 1. KNOWLEDGE BASE (Rules and Questions) ---
+        const knowledgeBase = {
+            // Rules are defined by the required facts (premises) and the resulting action/recommendation
+            "R01": {
+                facts_required: ["issue=Not Printing", "power=Off"],
+                recommendation: "✅ **ACTION:** Check the power cable, ensure the printer is plugged in, and press the power button.",
+            },
+            "R02": {
+                facts_required: ["issue=Not Printing", "power=On", "queue=Not Empty"],
+                recommendation: "✅ **ACTION:** Clear the print queue on your computer and restart both the printer and the computer.",
+            },
+            "R03": {
+                facts_required: ["issue=Not Printing", "power=On", "queue=Empty", "connection=Wireless"],
+                recommendation: "✅ **ACTION:** Restart your Wi-Fi router. Then, check the printer's network status and try reconnecting.",
+            },
+            "R04": {
+                facts_required: ["issue=Poor Quality", "ink=Low"],
+                recommendation: "✅ **ACTION:** Replace or refill the toner/ink cartridge. Run a printhead cleaning cycle.",
+            },
+            "R05": {
+                facts_required: ["issue=Poor Quality", "ink=OK", "paper=Plain"],
+                recommendation: "✅ **ACTION:** Run the printer's internal calibration/alignment tool. If the issue persists, update the printer driver.",
+            },
+        };
+
+        const questions = [
+            {
+                key: "issue",
+                prompt: "What is the main problem you're experiencing?",
+                options: ["Not Printing", "Poor Quality", "Paper Jam"],
+            },
+            {
+                key: "power",
+                prompt: "Is the printer's power light **ON** or **OFF**?",
+                options: ["On", "Off"],
+                depends_on: { "issue": ["Not Printing"] } // Only ask if the issue is "Not Printing"
+            },
+            {
+                key: "queue",
+                prompt: "Is the print queue on your computer **Empty** or **Not Empty**?",
+                options: ["Empty", "Not Empty"],
+                depends_on: { "power": ["On"], "issue": ["Not Printing"] }
+            },
+            {
+                key: "connection",
+                prompt: "How is the printer connected?",
+                options: ["USB", "Wireless"],
+                depends_on: { "queue": ["Empty"], "issue": ["Not Printing"] }
+            },
+            {
+                key: "ink",
+                prompt: "Is there a **Low Ink/Toner** warning message?",
+                options: ["Low", "OK"],
+                depends_on: { "issue": ["Poor Quality"] }
+            },
+            {
+                key: "paper",
+                prompt: "Are you using **Plain** paper or **Specialty** paper?",
+                options: ["Plain", "Specialty"],
+                depends_on: { "ink": ["OK"], "issue": ["Poor Quality"] }
+            }
+            // Note: Not all combinations lead to a rule. The system is designed to stop once a rule fires.
+        ];
+
+        // --- 2. INFERENCE ENGINE (Forward Chaining Logic) ---
+        let currentFacts = [];
+        let questionIndex = 0;
+
+        const uiInterface = document.getElementById('interface');
+        const uiResult = document.getElementById('result');
+
+        function startDiagnosis() {
+            currentFacts = [];
+            questionIndex = 0;
+            uiResult.style.display = 'none';
+            askNextQuestion();
+        }
+
+        function askNextQuestion() {
+            // Find the next relevant question
+            let nextQ = null;
+            for (let i = questionIndex; i < questions.length; i++) {
+                const q = questions[i];
+                let isRelevant = true;
+                
+                if (q.depends_on) {
+                    for (const factKey in q.depends_on) {
+                        const requiredValues = q.depends_on[factKey];
+                        const factMatch = currentFacts.find(fact => fact.startsWith(`${factKey}=`));
+                        
+                        if (!factMatch || !requiredValues.includes(factMatch.split('=')[1])) {
+                            isRelevant = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isRelevant) {
+                    nextQ = q;
+                    questionIndex = i + 1; // Increment for the next call
+                    break;
+                }
+            }
+
+            if (nextQ) {
+                renderQuestion(nextQ);
+            } else {
+                // If no more relevant questions, check if a rule has fired
+                checkRules(true); 
+            }
+        }
+
+        function renderQuestion(q) {
+            uiInterface.innerHTML = `
+                <div class="question-box">
+                    <p>${q.prompt}</p>
+                    <div id="options-${q.key}">
+                        ${q.options.map(opt => 
+                            `<button onclick="handleAnswer('${q.key}', '${opt}')">${opt}</button>`
+                        ).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleAnswer(key, answer) {
+            // Add the new fact to the working memory
+            currentFacts.push(`${key}=${answer}`);
+            
+            // Immediately check if a rule fires (Forward Chaining)
+            const solutionFound = checkRules(false);
+
+            if (!solutionFound) {
+                // If no solution yet, continue with the next question
+                askNextQuestion();
+            }
+        }
+
+        function checkRules(isFinalCheck) {
+            for (const ruleId in knowledgeBase) {
+                const rule = knowledgeBase[ruleId];
+                const requiredFacts = rule.facts_required;
+
+                // Check if ALL required facts are present in currentFacts
+                const ruleFired = requiredFacts.every(reqFact => currentFacts.includes(reqFact));
+
+                if (ruleFired) {
+                    displayResult(rule.recommendation, 'success');
+                    return true; // Solution found!
+                }
+            }
+
+            // If it's the final check and no rule fired, display the 'cannot diagnose' message
+            if (isFinalCheck) {
+                displayResult("❌ **DIAGNOSIS INCONCLUSIVE:** The system could not diagnose the issue with the current rules. Please consult the printer's manual or technical support.", 'failure');
+                return true;
+            }
+
+            return false; // No solution yet
+        }
+
+        function displayResult(message, type) {
+            uiInterface.innerHTML = ''; // Clear questions
+            uiResult.innerHTML = `
+                <p><strong>Diagnosis Complete:</strong></p>
+                <p>${message}</p>
+                <button onclick="startDiagnosis()">Start Over</button>
+            `;
+            uiResult.className = `result ${type}`;
+            uiResult.style.display = 'block';
+        }
+
+        // --- 3. START THE SYSTEM ---
+        startDiagnosis();
+
+    </script>
+</body>
+</html>
